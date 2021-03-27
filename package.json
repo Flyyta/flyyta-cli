@@ -1,0 +1,35 @@
+{
+  "name": "flyyta",
+  "version": "1.0.0",
+  "description": "A CLI Tool to create, build and deploy Flyyta Projects",
+  "main": "src/cli.js",
+  "preferGlobal": true,
+  "bin": "src/cli.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Flyyta/flyyta-cli.git"
+  },
+  "keywords": [
+    "cli",
+    "template",
+    "compiler"
+  ],
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Flyyta/flyyta-cli/issues"
+  },
+  "homepage": "https://github.com/Flyyta/flyyta-cli#readme",
+  "dependencies": {
+    "chalk": "^4.1.0",
+    "cli-spinner": "^0.2.10",
+    "commander": "^7.2.0",
+    "inquirer": "^8.0.0",
+    "node-emoji": "^1.10.0",
+    "shelljs": "^0.8.4",
+    "simple-git": "^2.37.0"
+  }
+}
