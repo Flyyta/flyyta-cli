@@ -8,11 +8,8 @@ const emoji = require("node-emoji");
 const fs = require("fs");
 const path = require("path");
 const express = require("express");
-const postMethods = require("./posts");
-const convertFiles = require("./convert");
 const Spinner = require("cli-spinner").Spinner;
-const configPath = path.join(process.cwd(), "config");
-const config = require(configPath);
+
 const option = {
   baseDir: process.cwd(),
 };
@@ -119,8 +116,12 @@ program
   .alias("s")
   .description("Start Flyyta Project ")
   .action(() => {
+    const postMethods = require("./posts");
+    const convertFiles = require("./convert");
+    const configPath = path.join(process.cwd(), "config");
+    const config = require(configPath);
     const app = express();
-    const port = process.env.PORT || 3000;
+    const port = process.env.PORT || 5000;
     const publicPath = path.join(process.cwd(), "public");
     const postPath = path.join(process.cwd(), config.postPath.postsdir);
     app.use(express.static(publicPath));
