@@ -6,7 +6,13 @@ const chalk = require("chalk");
 const shell = require("shelljs");
 const emoji = require("node-emoji");
 const fs = require("fs");
+const path = require("path");
+const express = require("express");
+const postMethods = require("./posts");
+const convertFiles = require("./convert");
 const Spinner = require("cli-spinner").Spinner;
+const configPath = path.join(process.cwd(), "config");
+const config = require(configPath);
 const option = {
   baseDir: process.cwd(),
 };
@@ -105,6 +111,56 @@ program
           return {};
       }
     });
+  });
+
+// Start Project
+program
+  .command("start")
+  .alias("s")
+  .description("Start Flyyta Project ")
+  .action(() => {
+    const app = express();
+    const port = process.env.PORT || 3000;
+    const publicPath = path.join(process.cwd(), "public");
+    const postPath = path.join(process.cwd(), config.postPath.postsdir);
+    app.use(express.static(publicPath));
+    try {
+      const posts = fs
+        .readdirSync(postPath)
+        .map((post) => post.slice(0, -3))
+        .map((post) => postMethods.createPost(post))
+        .sort(function (a, b) {
+          return b.attributes.date - a.attributes.date;
+        });
+      if (!fs.existsSync(config.postPath.outdir))
+        fs.mkdirSync(config.postPath.outdir);
+
+      postMethods.createPosts(posts);
+
+      convertFiles(posts);
+
+      app.get("/", (req, res) => {
+        res.render("index");
+      });
+
+      app.listen(port, () => {
+        console.log(chalk.green(`Server is listening on port ${port}`));
+      });
+    } catch (error) {
+      console.log(
+        chalk.red(`The folder ${config.postPath.postsdir} does not exists !`)
+      );
+      process.exit(1);
+    }
+  });
+
+// Build Project
+program
+  .command("build")
+  .alias("b")
+  .description("Build Flyyta Project ")
+  .action(() => {
+    console.log(process.cwd());
   });
 
 program.parse(process.argv);
