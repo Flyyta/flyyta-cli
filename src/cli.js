@@ -145,8 +145,13 @@ program
       });
 
       app.listen(port, () => {
-        console.log(chalk.green(`Server is listening on port ${port}`));
+        console.log(
+          chalk.green(
+            `Local Development Server Started on http://localhost:${port}`
+          )
+        );
       });
+      // shell.exec(`nodemon -e .md,.js -q`);
     } catch (error) {
       console.log(
         chalk.red(`The folder ${config.postPath.postsdir} does not exists !`)

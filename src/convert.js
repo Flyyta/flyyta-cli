@@ -21,7 +21,7 @@ const convertFiles = async (posts) => {
   let markupFromExternalFile;
   const files = await fs.promises.readdir(moveFrom);
   for (const file of files) {
-    if (file == "index.html") {
+    if (file == config.mapPostsTo.fileName) {
       let mappedPosts = postMapFunction(posts);
       config.posts = mappedPosts;
     }
