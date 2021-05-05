@@ -29,9 +29,9 @@ const createPost = (postPath) => {
 
 //Build blog posts
 const Regex = /\{(.*?)\}/g;
-// const postRegex = /\\?{{(.+?)}}/gs;
 
 const convertMarkdowntoHtml = (finalMarkup, regex = Regex, post) => {
+  console.log(finalMarkup);
   const changes = finalMarkup.matchAll(regex);
   while (true) {
     const change = changes.next();
@@ -41,11 +41,16 @@ const convertMarkdowntoHtml = (finalMarkup, regex = Regex, post) => {
     if (
       prop.includes("title") ||
       prop.includes("description") ||
-      prop.includes("body")
+      prop.includes("body") ||
+      prop.includes("date") ||
+      prop.includes("path")
     ) {
       if (post) {
-        if (prop.includes("body", post?.body)) {
+        if (prop.includes("body")) {
           finalMarkup = finalMarkup.replace(replacement, post?.body);
+        }
+        if (prop.includes("path")) {
+          finalMarkup = finalMarkup.replace(replacement, post?.path);
         }
         if (prop.includes("title")) {
           finalMarkup = finalMarkup.replace(
@@ -57,6 +62,12 @@ const convertMarkdowntoHtml = (finalMarkup, regex = Regex, post) => {
           finalMarkup = finalMarkup.replace(
             replacement,
             post?.attributes?.description
+          );
+        }
+        if (prop.includes("date")) {
+          finalMarkup = finalMarkup.replace(
+            replacement,
+            new Date(parseInt(post?.attributes?.date)).toDateString()
           );
         }
       }

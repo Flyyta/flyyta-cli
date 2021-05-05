@@ -1,7 +1,7 @@
 //Function to map/inject available posts on index page
 const postMapFunction = (posts) => {
   return `
-            <div class="posts">
+           
                 ${posts
                   .map(
                     (post) => `<div class="post">
@@ -15,7 +15,7 @@ const postMapFunction = (posts) => {
                     </div>`
                   )
                   .join("")}
-            </div>
+            
           `;
 };
 
