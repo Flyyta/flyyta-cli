@@ -144,14 +144,28 @@ program
         res.render("index");
       });
 
-      app.listen(port, () => {
+      const server = app.listen(port, () => {
         console.log(
           chalk.green(
             `Local Development Server Started on http://localhost:${port}`
           )
         );
       });
-      // shell.exec(`nodemon -e .md,.js -q`);
+      fs.watch("src", function (event, filename) {
+        server.close();
+        console.log(chalk.green("Restarting Server"));
+        shell.exec(`flyyta start`);
+      });
+      fs.watch("layout", function (event, filename) {
+        server.close();
+        console.log(chalk.green("Restarting Server"));
+        shell.exec(`flyyta start`);
+      });
+      fs.watch("content", function (event, filename) {
+        server.close();
+        console.log(chalk.green("Restarting Server"));
+        shell.exec(`flyyta start`);
+      });
     } catch (error) {
       console.log(
         chalk.red(`The folder ${config.postPath.postsdir} does not exists !`)

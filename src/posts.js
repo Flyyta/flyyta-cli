@@ -31,7 +31,7 @@ const createPost = (postPath) => {
 const Regex = /\{(.*?)\}/g;
 
 const convertMarkdowntoHtml = (finalMarkup, regex = Regex, post) => {
-  console.log(finalMarkup);
+  // console.log(finalMarkup);
   const changes = finalMarkup.matchAll(regex);
   while (true) {
     const change = changes.next();
