@@ -71,16 +71,18 @@ program
                   )} Successfully Created Project`
                 )
               );
+             if(answers.gitinit == "Yes"){
               spinnerText2.start();
-              shell.exec(`cd ${dir} && npm install && rm -rf .git ${gitinit}`);
+              shell.exec(`cd ${dir} && rm -rf .git ${gitinit}`);
               spinnerText2.stop(true);
               console.log(
                 chalk.green(
                   `${emoji.get(
                     "heavy_check_mark"
-                  )} Successfully Installed Dependencies`
+                  )} Successfully Initialized Git`
                 )
               );
+             }
               console.log(chalk.green(`Next Steps ${emoji.get("arrow_down")}`));
               console.log(
                 chalk.green(
@@ -223,12 +225,12 @@ program
   });
 
 // Build Project
-program
-  .command("build")
-  .alias("b")
-  .description("Build Flyyta Project ")
-  .action(() => {
-    console.log(process.cwd());
-  });
+// program
+//   .command("build")
+//   .alias("b")
+//   .description("Build Flyyta Project ")
+//   .action(() => {
+//     console.log(process.cwd());
+//   });
 
 program.parse(process.argv);
