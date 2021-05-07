@@ -103,7 +103,55 @@ program
             });
           break;
         case "Portfolio":
-          return console.log("Portfolio project will be created here");
+          const pfdir = `./${answers.project_name}`;
+          let pfgitinit;
+          if (!fs.existsSync(pfdir)) fs.mkdirSync(pfdir);
+          if (answers.gitinit == "Yes") pfgitinit = `&& git init`;
+          else pfgitinit = "";
+          git
+            .clone("https://github.com/Flyyta/flyyta-portfolio.git", `${pfdir}`)
+            .then((res) => {
+              spinnerText.stop(true);
+              console.log(
+                chalk.green(
+                  `${emoji.get(
+                    "heavy_check_mark"
+                  )} Successfully Created Project`
+                )
+              );
+              if (answers.gitinit == "Yes") {
+                spinnerText2.start();
+                shell.exec(`cd ${pfdir} && rm -rf .git ${pfgitinit}`);
+                spinnerText2.stop(true);
+                console.log(
+                  chalk.green(
+                    `${emoji.get(
+                      "heavy_check_mark"
+                    )} Successfully Initialized Git`
+                  )
+                );
+              }
+              console.log(chalk.green(`Next Steps ${emoji.get("arrow_down")}`));
+              console.log(
+                chalk.green(
+                  `${emoji.get("arrow_right")}  cd ${
+                    answers.project_name
+                  }\n${emoji.get("arrow_right")}  flyyta start\n`
+                )
+              );
+              console.log(
+                chalk.green(
+                  `Create something wonderful ! ${emoji.get("heart")}`
+                )
+              );
+            })
+            .catch((err) => {
+              console.log(
+                chalk.red("\nAn Error Occurred while creating your project!")
+              );
+              process.exit(1);
+            });
+          break;
         default:
           return {};
       }
