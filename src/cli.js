@@ -16,7 +16,9 @@ const option = {
 const git = simpleGit(option);
 const spinnerText = new Spinner("Crafting your project.. %s");
 spinnerText.setSpinnerString(0);
-const spinnerText2 = new Spinner("Installing the required dependencies.. %s");
+const spinnerText2 = new Spinner(
+  "Installing the required dependencies.. %s \n"
+);
 spinnerText2.setSpinnerString(1);
 const createProjectQuestions = [
   {
@@ -29,7 +31,7 @@ const createProjectQuestions = [
     type: "list",
     name: "template",
     message: "Select the template you want to build with today :",
-    choices: ["Blank", "Blog", "Portfolio"],
+    choices: ["Blog", "Portfolio"],
   },
   {
     type: "list",
@@ -52,7 +54,7 @@ program
     prompt(createProjectQuestions).then((answers) => {
       spinnerText.start();
       switch (answers.template) {
-        case "Blank":
+        case "Blog":
           const dir = `./${answers.project_name}`;
           let gitinit;
           if (!fs.existsSync(dir)) fs.mkdirSync(dir);
@@ -84,7 +86,7 @@ program
                 chalk.green(
                   `${emoji.get("arrow_right")}  cd ${
                     answers.project_name
-                  }\n${emoji.get("arrow_right")}  npm run dev\n`
+                  }\n${emoji.get("arrow_right")}  flyyta start\n`
                 )
               );
               console.log(
@@ -100,8 +102,6 @@ program
               process.exit(1);
             });
           break;
-        case "Blog":
-          return console.log("Blog project will be created here");
         case "Portfolio":
           return console.log("Portfolio project will be created here");
         default:
@@ -146,9 +146,9 @@ program
 
       const server = app.listen(port, () => {
         console.log(
-          chalk.green(
-            `Local Development Server Started on http://localhost:${port}`
-          )
+          `Local Development Server Started on  ${chalk.cyan(
+            `http://localhost:${port}`
+          )}`
         );
       });
       fs.watch("src", function (event, filename) {
