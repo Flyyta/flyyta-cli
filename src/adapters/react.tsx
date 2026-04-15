@@ -87,7 +87,7 @@ function wrapHtml(document: {
     `    <link rel=\"canonical\" href=\"${document.canonicalUrl}\" />`,
     "  </head>",
     "  <body>",
-    `    <div id=\"root\">${document.appHtml}</div>`,
+    `    <div id="root">${document.appHtml}</div>`,
     document.body,
     `    <script>window.__FLYYTA__ = ${JSON.stringify({ siteName: document.siteName })};</script>`,
     "  </body>",
