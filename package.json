@@ -1,6 +1,6 @@
 {
   "name": "flyyta",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A TypeScript-first SSR, SSG, and hybrid framework with a React-first adapter and legacy Flyyta compatibility",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -8,10 +8,11 @@
   "bin": "dist/cli.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "prepack": "npm run build",
     "cli:dev": "tsx src/cli.ts dev",
     "cli:build": "tsx src/cli.ts build",
     "cli:serve": "tsx src/cli.ts serve",
-    "lint": "tsc --noEmit -p tsconfig.json",
+    "lint": "tsc --noEmit -p tsconfig.check.json",
     "test": "tsx --test tests/**/*.test.ts",
     "check": "npm run lint && npm test"
   },

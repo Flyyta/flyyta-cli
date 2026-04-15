@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import path from "path";
-import { spawnSync } from "child_process";
+import path from "node:path";
+import { spawnSync } from "node:child_process";
 
 const cliPath = path.join(__dirname, "../src/cli.ts");
 
@@ -17,4 +17,10 @@ test("CLI exposes create, build, dev, serve, and start help", () => {
     assert.equal(result.status, 0);
     assert.match(result.stdout, new RegExp(command));
   }
+});
+
+test("create help documents the template option", () => {
+  const result = runCli(["create", "--help"]);
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /--template <template>/);
 });

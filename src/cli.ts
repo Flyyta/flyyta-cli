@@ -1,11 +1,16 @@
 #!/usr/bin/env node
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { Command } from "commander";
-import packageJson from "../package.json";
 import { createLogger } from "./utils";
 import { buildProject, startDev } from "./framework";
 import { loadConfig } from "./config";
 import { scaffoldProject } from "./create";
 import { startNodeServer } from "./runtime";
+
+const packageJson = JSON.parse(
+  readFileSync(join(__dirname, "..", "package.json"), "utf8"),
+) as { description: string; version: string };
 
 async function main(): Promise<void> {
   const program = new Command();

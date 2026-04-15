@@ -7,9 +7,8 @@ import type { Logger } from "./types";
 const inquirer: any = require("inquirer");
 
 function starterRoot(): string {
-  return path.basename(__dirname) === "src"
-    ? path.resolve(__dirname, "../starters")
-    : path.resolve(__dirname, "../../starters");
+  // Emitted beside dist/create.js → ../starters; same relative layout when running from src via tsx
+  return path.resolve(__dirname, "../starters");
 }
 
 export const STARTERS = {
