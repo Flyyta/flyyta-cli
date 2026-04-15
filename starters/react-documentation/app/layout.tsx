@@ -1,23 +1,16 @@
-type LayoutProps = {
-  children: React.ReactNode;
-};
+import React from "react";
 
-export default function RootLayout({ children }: LayoutProps) {
+export default function RootLayout(props: {
+  children: React.ReactNode;
+  config: { site: { name: string; heading: string } };
+}) {
   return (
-    <html lang="en">
-      <head>
-        <meta charSet="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>Flyyta Docs</title>
-        <link rel="stylesheet" href="/style.css" />
-      </head>
-      <body>
-        <aside className="sidebar">
-          <h1>Flyyta Docs</h1>
-          <a href="/">Getting started</a>
-        </aside>
-        <main>{children}</main>
-      </body>
-    </html>
+    <div style={{ maxWidth: 760, margin: "0 auto", padding: 24, fontFamily: "sans-serif" }}>
+      <header>
+        <h1>{props.config.site.name}</h1>
+        <p>{props.config.site.heading}</p>
+      </header>
+      {props.children}
+    </div>
   );
 }

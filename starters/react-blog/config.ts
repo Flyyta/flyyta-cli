@@ -1,28 +1,23 @@
 export default {
   adapter: "react",
   site: {
-    name: "Flyyta Blog",
-    heading: "A React-first Flyyta blog starter",
-    description: "Hybrid SSR and SSG blog starter built with Flyyta",
+    name: "Flyyta React Blog",
+    heading: "A React-first blog starter powered by Flyyta",
+    description: "SSR, SSG, and content collections in one modern starter.",
     url: "https://example.com",
     author: {
       name: "Flyyta",
-      description: "Shipping content with Flyyta",
-      website: "https://example.com",
+      website: "https://github.com/Flyyta/flyyta-cli",
+      description: "Static-first and server-capable publishing.",
     },
   },
   paths: {
-    appDir: "./app",
     contentDir: "./content",
+    appDir: "./app",
     outDir: "./dist",
     publicDir: "./public",
   },
   react: {
     appDir: "./app",
-  },
-  collections: {
-    posts: {
-      permalink: "/blog/:slug/",
-    },
   },
 };

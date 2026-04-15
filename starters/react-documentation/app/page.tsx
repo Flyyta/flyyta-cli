@@ -1,29 +1,15 @@
+import React from "react";
+
 export const route = {
   render: "static",
-  title: "Documentation home",
+  title: "Home",
 } as const;
 
-type DocsPageProps = {
-  article: {
-    title: string;
-    content: string;
-    description: string;
-  };
-};
-
-export async function loader({ content }: { content: { posts: Array<any> } }) {
-  return {
-    article: content.posts[0],
-  };
-}
-
-export default function DocsPage({ article }: DocsPageProps) {
+export default function HomePage() {
   return (
-    <article className="doc-shell">
-      <p className="eyebrow">Documentation</p>
-      <h2>{article.title}</h2>
-      <p className="lede">{article.description}</p>
-      <div dangerouslySetInnerHTML={{ __html: article.content }} />
-    </article>
+    <section>
+      <h2>Documentation starter</h2>
+      <p>Use this starter for docs, guides, release notes, and internal knowledge bases.</p>
+    </section>
   );
 }

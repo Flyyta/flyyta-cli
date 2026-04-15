@@ -1,13 +1,9 @@
 ---
 title: Hello Flyyta
-description: Meet the new React-first Flyyta blog starter.
-date: 2026-04-01
-tags:
-  - flyyta
-  - react
-categories:
-  - Product
+description: The first post in the React blog starter.
+date: 2026-04-16
+tags: [release]
+categories: [updates]
 ---
 
-Flyyta now supports a modern app-based workflow. You can author route modules inside `app/`, keep content in markdown,
-and render static pages or server routes through the same framework core.
+This starter uses React route components for the application surface and markdown for content collections.

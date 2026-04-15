@@ -1,43 +1,15 @@
+import React from "react";
+
 export const route = {
   render: "static",
-  title: "Portfolio",
+  title: "Home",
 } as const;
 
-const projects = [
-  {
-    name: "Composable storefront",
-    description: "A modern commerce frontend with SSR and hybrid product discovery.",
-  },
-  {
-    name: "Content platform",
-    description: "Editorial publishing flow with markdown collections and route-level layouts.",
-  },
-  {
-    name: "Design system site",
-    description: "Component docs, release notes, and search-backed documentation pages.",
-  },
-];
-
-export default function PortfolioPage() {
+export default function HomePage() {
   return (
-    <section className="portfolio-shell">
-      <div className="hero">
-        <p className="eyebrow">Portfolio starter</p>
-        <h1>Build a polished personal site on top of Flyyta.</h1>
-        <p>
-          This starter uses React route components, minimal content modeling, and a simple static render mode to
-          showcase work or products.
-        </p>
-      </div>
-
-      <div className="project-grid">
-        {projects.map((project) => (
-          <article key={project.name} className="project-card">
-            <h2>{project.name}</h2>
-            <p>{project.description}</p>
-          </article>
-        ))}
-      </div>
+    <section>
+      <h2>Portfolio starter</h2>
+      <p>Replace this page with your work, profile, and writing.</p>
     </section>
   );
 }

@@ -2,13 +2,13 @@ export default {
   adapter: "react",
   site: {
     name: "Flyyta Portfolio",
-    heading: "Portfolio starter",
-    description: "Starter for personal sites and product showcases.",
-    url: "https://example.com/portfolio",
+    heading: "A modern portfolio starter",
+    description: "Use React routes for your app shell and content collections for writing.",
+    url: "https://example.com",
     author: {
-      name: "Flyyta",
-      description: "Building for the web",
+      name: "Your Name",
       website: "https://example.com",
+      description: "Builder on the web",
     },
   },
   paths: {
@@ -16,8 +16,5 @@ export default {
     contentDir: "./content",
     outDir: "./dist",
     publicDir: "./public",
-  },
-  react: {
-    appDir: "./app",
   },
 };

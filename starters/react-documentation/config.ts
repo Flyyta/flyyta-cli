@@ -3,12 +3,12 @@ export default {
   site: {
     name: "Flyyta Docs",
     heading: "Documentation starter",
-    description: "Starter for product docs and guides.",
-    url: "https://example.com/docs",
+    description: "A React-first docs starter backed by Flyyta.",
+    url: "https://example.com",
     author: {
-      name: "Flyyta",
-      description: "Documentation team",
+      name: "Docs Team",
       website: "https://example.com",
+      description: "Ship docs fast.",
     },
   },
   paths: {
@@ -16,8 +16,5 @@ export default {
     contentDir: "./content",
     outDir: "./dist",
     publicDir: "./public",
-  },
-  react: {
-    appDir: "./app",
   },
 };

@@ -1,199 +1,269 @@
 import fs from "fs";
 import path from "path";
-import React, { Fragment } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+import { pathToFileURL } from "url";
+import React, { type ReactElement, type ReactNode } from "react";
+import { renderToStaticMarkup, renderToString } from "react-dom/server";
+import fse from "fs-extra";
 import { register } from "esbuild-register/dist/node";
 import type {
   AdapterBuildContext,
+  AdapterBuildResult,
   FlyytaAdapter,
   ReactRouteModule,
+  RenderMode,
+  RenderedRoute,
   RouteDefinition,
-  RouteModuleContext,
 } from "../types";
+import {
+  ensureUrlTrailingSlash,
+  fileExists,
+  outputPathFromUrl,
+  routeToManifestEntry,
+  toPosixPath,
+  walkDirectory,
+} from "../utils";
 import { pagePatternFromSegments } from "../routing";
-import { normalizeRouteUrl, toPosixPath, walkDirectory } from "../utils";
+import { buildRsbuildArtifacts } from "../runtime";
 
-const APP_PAGE_REGEX = /(?:^|\/)page\.(tsx|ts|jsx|js)$/;
-const unregister = register({
-  extensions: [".ts", ".tsx", ".js", ".jsx"],
-  target: "es2022",
-  jsx: "automatic",
-  format: "cjs",
-});
+interface LoadedRouteModule {
+  module: ReactRouteModule;
+  templatePath: string;
+}
 
-async function loadRouteModule(filePath: string): Promise<ReactRouteModule> {
-  unregister;
-  const loaded = (await import(filePath)) as ReactRouteModule | { default: ReactRouteModule };
-  if ("default" in loaded && typeof loaded.default === "object") {
-    return loaded.default as ReactRouteModule;
+async function loadRouteModule(filePath: string): Promise<LoadedRouteModule> {
+  const { unregister } = register({
+    extensions: [".ts", ".tsx"],
+    target: "es2022",
+    format: "cjs",
+  });
+
+  try {
+    const imported = (await import(`${pathToFileURL(filePath).href}?t=${Date.now()}`)) as ReactRouteModule;
+    return {
+      module: imported,
+      templatePath: filePath,
+    };
+  } finally {
+    unregister();
   }
-  return loaded as ReactRouteModule;
 }
 
 function routeSegmentsFromAppFile(appDir: string, filePath: string): string[] {
   const relativePath = toPosixPath(path.relative(appDir, filePath));
-  return relativePath
-    .replace(/\/page\.[^.]+$/, "")
-    .split("/")
-    .filter(Boolean);
+  const pageDir = relativePath.replace(/\/page\.(tsx|ts|jsx|js)$/i, "").replace(/page\.(tsx|ts|jsx|js)$/i, "");
+  return pageDir ? pageDir.split("/").filter(Boolean) : [];
+}
+
+function isPageFile(filePath: string): boolean {
+  return /page\.(tsx|ts|jsx|js)$/i.test(filePath);
 }
 
 function resolveRouteUrl(segments: string[], params: Record<string, string> = {}): string {
-  if (segments.length === 0) {
-    return "/";
-  }
-
-  const concreteSegments = segments.map((segment) => {
-    if (/^\[\.\.\.[^\]]+\]$/.test(segment)) {
-      const key = segment.slice(4, -1);
-      return params[key] || "";
-    }
-    if (/^\[[^\]]+\]$/.test(segment)) {
-      const key = segment.slice(1, -1);
-      return params[key] || segment;
+  const resolvedSegments = segments.map((segment) => {
+    if (segment.startsWith("[") && segment.endsWith("]")) {
+      return params[segment.slice(1, -1)] || segment;
     }
     return segment;
   });
 
-  return normalizeRouteUrl(`/${concreteSegments.filter(Boolean).join("/")}/`);
+  const joined = resolvedSegments.filter(Boolean).join("/");
+  return joined ? `/${joined}/` : "/";
 }
 
-function outputPathForUrl(urlPath: string): string {
-  return urlPath === "/" ? "index.html" : path.posix.join(urlPath.replace(/^\//, ""), "index.html");
+function wrapHtml(document: {
+  title: string;
+  body: string;
+  appHtml: string;
+  canonicalUrl: string;
+  siteName: string;
+}): string {
+  return [
+    "<!DOCTYPE html>",
+    "<html lang=\"en\">",
+    "  <head>",
+    "    <meta charset=\"UTF-8\" />",
+    "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />",
+    `    <title>${document.title}</title>`,
+    `    <link rel=\"canonical\" href=\"${document.canonicalUrl}\" />`,
+    "  </head>",
+    "  <body>",
+    `    <div id=\"root\">${document.appHtml}</div>`,
+    document.body,
+    `    <script>window.__FLYYTA__ = ${JSON.stringify({ siteName: document.siteName })};</script>`,
+    "  </body>",
+    "</html>",
+  ].join("\n");
 }
 
-function wrapDocument(markup: string): string {
-  return `<!DOCTYPE html>${markup}`;
+function RootLayout(props: { children: ReactNode; siteName: string }): ReactElement {
+  return React.createElement("div", { className: "flyyta-app" }, [
+    React.createElement("header", { key: "header" }, React.createElement("a", { href: "/" }, props.siteName)),
+    React.createElement("main", { key: "main" }, props.children),
+  ]);
 }
 
 export async function renderReactRoute(
   context: AdapterBuildContext,
-  route: RouteDefinition,
-  params: Record<string, string> = {}
-): Promise<string> {
-  const module = await loadRouteModule(route.filePath);
-  const routeContext: RouteModuleContext = {
-    params,
-    config: context.config,
-    content: context.content,
-  };
+  route: RouteDefinition
+): Promise<RenderedRoute | null> {
+  if (!route.sourcePath) {
+    return null;
+  }
 
-  const data = module.loader ? await module.loader(routeContext) : undefined;
-  const PageComponent = module.default;
-  const LayoutComponent = module.Layout;
-  const rootLayoutPath = path.join(context.config.paths.appDir, "layout.tsx");
-  const RootLayout = fs.existsSync(rootLayoutPath)
-    ? ((await loadRouteModule(rootLayoutPath)).default as any)
-    : Fragment;
+  const loaded = await loadRouteModule(route.sourcePath);
+  const module = loaded.module;
+  const props = module.loader
+    ? await module.loader({
+        params: route.params || {},
+        config: context.config,
+        content: context.content,
+      })
+    : {};
 
-  const pageElement = React.createElement(PageComponent as any, data as any);
-  const withLayout = LayoutComponent
-    ? React.createElement(LayoutComponent as any, { children: pageElement, data, params } as any)
-    : pageElement;
-  const tree = React.createElement(RootLayout as any, {
-    children: withLayout,
-    data,
-    params,
+  const Page = module.default;
+  const layoutFile =
+    context.config.react.rootLayout ||
+    (fileExists(path.join(context.config.paths.appDir, "layout.tsx"))
+      ? path.join(context.config.paths.appDir, "layout.tsx")
+      : undefined);
+  let LayoutComponent: ((props: { children: ReactNode; config: typeof context.config }) => ReactElement) | undefined =
+    module.Layout;
+
+  if (!LayoutComponent && layoutFile) {
+    const loadedLayout = await loadRouteModule(layoutFile);
+    LayoutComponent = loadedLayout.module.default as unknown as typeof LayoutComponent;
+  }
+
+  const pageElement = React.createElement(Page, props);
+  const appTree = LayoutComponent
+    ? React.createElement(LayoutComponent as any, { config: context.config }, pageElement)
+    : React.createElement(RootLayout as any, { siteName: context.config.site.name }, pageElement);
+  const html =
+    route.renderMode === "server"
+      ? renderToString(appTree)
+      : renderToStaticMarkup(appTree);
+
+  return {
     route,
-  } as any);
-
-  return wrapDocument(renderToStaticMarkup(tree));
-}
-
-async function resolveStaticRouteVariants(
-  context: AdapterBuildContext,
-  route: RouteDefinition,
-  segments: string[],
-  module: ReactRouteModule
-): Promise<RouteDefinition[]> {
-  const hasDynamicSegments = segments.some((segment) => segment.startsWith("[") && segment.endsWith("]"));
-  if (!hasDynamicSegments) {
-    return [route];
-  }
-
-  if (!module.generateStaticParams) {
-    if (route.renderMode === "server" || route.renderMode === "hybrid") {
-      return [route];
-    }
-    throw new Error(`Dynamic route ${route.filePath} must export generateStaticParams or opt into server rendering`);
-  }
-
-  const paramsList = await module.generateStaticParams({
-    config: context.config,
-    content: context.content,
-  });
-  return paramsList.map((params, index) => {
-    const urlPath = resolveRouteUrl(segments, params);
-    return {
-      ...route,
-      id: `${route.id}:${index + 1}`,
-      urlPath,
-      outputPath: outputPathForUrl(urlPath),
-      metadata: {
-        ...(route.metadata || {}),
-        params,
-      },
-    };
-  });
+    outputPath: route.outputPath || outputPathFromUrl(route.urlPath),
+    contents: wrapHtml({
+      title: route.title || context.config.site.name,
+      body: route.renderMode === "hybrid" || route.renderMode === "client"
+        ? "<script type=\"module\" src=\"/__flyyta__/client-entry.js\"></script>"
+        : "",
+      appHtml: html,
+      canonicalUrl: new URL(route.urlPath.replace(/^\//, ""), ensureUrlTrailingSlash(context.config.site.url)).toString(),
+      siteName: context.config.site.name,
+    }),
+  };
 }
 
 export const reactAdapter: FlyytaAdapter = {
-  name: "react",
-  async discoverRoutes(context) {
+  kind: "react",
+  async discoverRoutes(context: AdapterBuildContext): Promise<RouteDefinition[]> {
     const appDir = context.config.paths.appDir;
-    if (!fs.existsSync(appDir)) {
+    if (!fileExists(appDir)) {
       return [];
     }
 
-    const files = await walkDirectory(appDir);
-    const routeFiles = files.filter((filePath) => APP_PAGE_REGEX.test(filePath));
-    const discovered: RouteDefinition[] = [];
+    const files = (await walkDirectory(appDir)).filter(isPageFile);
+    const routes: RouteDefinition[] = [];
 
-    for (const filePath of routeFiles) {
+    for (const filePath of files) {
+      const loaded = await loadRouteModule(filePath);
       const segments = routeSegmentsFromAppFile(appDir, filePath);
-      const module = await loadRouteModule(filePath);
-      const pattern = pagePatternFromSegments(segments);
-      const urlPath = resolveRouteUrl(segments);
-      const route: RouteDefinition = {
-        id: `react:${toPosixPath(path.relative(context.config.rootDir, filePath))}`,
+      const routeMeta = loaded.module.route || {};
+      const renderMode: RenderMode =
+        routeMeta.render || (segments.some((segment) => segment.startsWith("[") && segment.endsWith("]")) ? "server" : "static");
+      const { pattern, paramNames } = pagePatternFromSegments(segments);
+
+      if (paramNames.length > 0 && (renderMode === "static" || renderMode === "hybrid" || renderMode === "client")) {
+        const staticParams = loaded.module.generateStaticParams
+          ? await loaded.module.generateStaticParams({
+              config: context.config,
+              content: context.content,
+            })
+          : [];
+        for (const params of staticParams) {
+          const urlPath = resolveRouteUrl(segments, params);
+          routes.push({
+            id: `app:${toPosixPath(path.relative(appDir, filePath))}:${JSON.stringify(params)}`,
+            kind: "app",
+            renderMode,
+            sourcePath: filePath,
+            urlPath,
+            outputPath: outputPathFromUrl(urlPath),
+            params,
+            title: routeMeta.title,
+          });
+        }
+        continue;
+      }
+
+      routes.push({
+        id: `app:${toPosixPath(path.relative(appDir, filePath))}`,
+        kind: "app",
+        renderMode,
+        sourcePath: filePath,
+        urlPath: resolveRouteUrl(segments),
+        outputPath: renderMode === "server" ? undefined : outputPathFromUrl(resolveRouteUrl(segments)),
         pattern,
-        urlPath,
-        outputPath: outputPathForUrl(urlPath),
-        filePath,
-        renderMode: module.route?.render || "static",
-        sourceType: "component",
-        metadata: {
-          title: module.route?.title,
-          description: module.route?.description,
-        },
-      };
-      const variants = await resolveStaticRouteVariants(context, route, segments, module);
-      discovered.push(...variants);
+        title: routeMeta.title,
+      });
     }
 
-    return discovered.sort((left, right) => left.urlPath.localeCompare(right.urlPath));
+    return routes;
   },
-  async build(context, routes) {
-    const staticRoutes = routes.filter((route) => route.renderMode === "static");
-    const serverRoutes = routes.filter((route) => route.renderMode === "server" || route.renderMode === "hybrid");
+  async build(context: AdapterBuildContext, routes: RouteDefinition[]): Promise<AdapterBuildResult> {
+    const renderedRoutes: RenderedRoute[] = [];
+    await fse.remove(context.config.paths.outDir);
+    await fse.ensureDir(context.config.paths.outDir);
 
-    const renderedRoutes = await Promise.all(
-      staticRoutes.map(async (route) => {
-        context.graph.connect(route.filePath, route.outputPath);
-        const params = (route.metadata?.params as Record<string, string> | undefined) || {};
-        return {
-          route,
-          outputPath: route.outputPath,
-          contents: await renderReactRoute(context, route, params),
-        };
-      })
-    );
+    if (fileExists(context.config.paths.publicDir)) {
+      await fse.copy(context.config.paths.publicDir, context.config.paths.outDir);
+    }
 
-    const supplementalFiles = [] as Array<{ outputPath: string; contents: string }>;
-    if (serverRoutes.length > 0) {
-      supplementalFiles.push({
+    for (const route of routes) {
+      context.graph.connect(route.id, route.sourcePath || route.urlPath);
+      if (route.renderMode === "server") {
+        continue;
+      }
+
+      const rendered = await renderReactRoute(context, route);
+      if (rendered) {
+        renderedRoutes.push(rendered);
+      }
+    }
+
+    const supplementalFiles = [
+      {
+        outputPath: "route-manifest.json",
+        contents: JSON.stringify(routes.map(routeToManifestEntry), null, 2),
+      },
+      {
         outputPath: "server-manifest.json",
-        contents: JSON.stringify(serverRoutes, null, 2),
+        contents: JSON.stringify(
+          routes
+            .filter((route) => route.renderMode === "server" || route.renderMode === "hybrid")
+            .map((route) => ({
+              id: route.id,
+              sourcePath: route.sourcePath,
+              urlPath: route.urlPath,
+              renderMode: route.renderMode,
+            })),
+          null,
+          2
+        ),
+      },
+    ];
+
+    if (routes.some((route) => route.renderMode === "hybrid" || route.renderMode === "client")) {
+      await buildRsbuildArtifacts({
+        rootDir: context.config.rootDir,
+        appDir: context.config.paths.appDir,
+        outDir: context.config.paths.outDir,
+        clientPort: context.config.dev.clientPort,
+        logger: context.logger,
       });
     }
 
