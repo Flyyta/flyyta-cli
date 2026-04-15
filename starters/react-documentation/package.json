@@ -1,0 +1,14 @@
+{
+  "name": "flyyta-react-documentation",
+  "private": true,
+  "scripts": {
+    "dev": "flyyta dev",
+    "build": "flyyta build",
+    "serve": "flyyta serve"
+  },
+  "dependencies": {
+    "flyyta": "latest",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5"
+  }
+}
