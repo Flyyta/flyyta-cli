@@ -14,7 +14,9 @@
     "cli:serve": "tsx src/cli.ts serve",
     "lint": "tsc --noEmit -p tsconfig.check.json",
     "test": "tsx --test tests/**/*.test.ts",
-    "check": "npm run lint && npm test"
+    "check": "npm run lint && npm test",
+    "smoke:pack": "tsx scripts/smoke-pack.ts",
+    "release:check": "npm run check && npm run smoke:pack && npm audit --omit=dev --audit-level=high"
   },
   "engines": {
     "node": ">=18.18"

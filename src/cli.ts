@@ -12,6 +12,20 @@ const packageJson = JSON.parse(
   readFileSync(join(__dirname, "..", "package.json"), "utf8"),
 ) as { description: string; version: string };
 
+function formatCliError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+
+  if (message.startsWith("Could not find Flyyta config in ")) {
+    return `${message}. Create a config.ts/config.js file or pass --root to a Flyyta project.`;
+  }
+
+  if (message.startsWith("Directory already exists: ")) {
+    return `${message}. Choose a new directory or remove the existing one first.`;
+  }
+
+  return message;
+}
+
 async function main(): Promise<void> {
   const program = new Command();
 
@@ -83,7 +97,6 @@ async function main(): Promise<void> {
 }
 
 void main().catch((error: unknown) => {
-  const message = error instanceof Error ? error.message : String(error);
-  console.error(message);
+  console.error(formatCliError(error));
   process.exit(1);
 });

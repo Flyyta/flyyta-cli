@@ -24,3 +24,10 @@ test("create help documents the template option", () => {
   assert.equal(result.status, 0);
   assert.match(result.stdout, /--template <template>/);
 });
+
+test("create rejects unknown templates with a clear error", () => {
+  const result = runCli(["create", "my-app", "--template", "unknown-template"]);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Unknown starter template "unknown-template"/);
+  assert.match(result.stderr, /Valid templates: blog, portfolio, documentation/);
+});

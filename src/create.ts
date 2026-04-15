@@ -1,4 +1,4 @@
-import path from "path";
+import path from "node:path";
 import fse from "fs-extra";
 import simpleGit from "simple-git";
 import type { Logger } from "./types";
@@ -32,6 +32,20 @@ export const STARTERS = {
   },
 } as const;
 
+function getStarter(template: keyof typeof STARTERS) {
+  return STARTERS[template];
+}
+
+function assertValidTemplate(template: string | undefined): asserts template is keyof typeof STARTERS {
+  if (!template || template in STARTERS) {
+    return;
+  }
+
+  throw new Error(
+    `Unknown starter template "${template}". Valid templates: ${Object.keys(STARTERS).join(", ")}.`
+  );
+}
+
 export async function scaffoldProject(options: {
   rootDir: string;
   directory?: string;
@@ -39,7 +53,13 @@ export async function scaffoldProject(options: {
   git?: boolean;
   logger: Logger;
 }): Promise<void> {
-  const answers = {
+  assertValidTemplate(options.template);
+
+  const answers: {
+    directory: string;
+    template: keyof typeof STARTERS;
+    git: boolean;
+  } = {
     directory:
       options.directory ||
       (
@@ -66,7 +86,7 @@ export async function scaffoldProject(options: {
             })),
           },
         ])
-      ).template,
+      ).template as keyof typeof STARTERS,
     git:
       typeof options.git === "boolean"
         ? options.git
@@ -82,7 +102,7 @@ export async function scaffoldProject(options: {
           ).git,
   };
 
-  const starter = STARTERS[answers.template as keyof typeof STARTERS];
+  const starter = getStarter(answers.template);
   const targetDir = path.resolve(options.rootDir, answers.directory);
   if (await fse.pathExists(targetDir)) {
     throw new Error(`Directory already exists: ${targetDir}`);

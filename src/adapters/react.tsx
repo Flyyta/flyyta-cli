@@ -1,6 +1,4 @@
-import fs from "fs";
-import path from "path";
-import { pathToFileURL } from "url";
+import path from "node:path";
 import React, { type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup, renderToString } from "react-dom/server";
 import fse from "fs-extra";
@@ -38,7 +36,8 @@ async function loadRouteModule(filePath: string): Promise<LoadedRouteModule> {
   });
 
   try {
-    const imported = (await import(`${pathToFileURL(filePath).href}?t=${Date.now()}`)) as ReactRouteModule;
+    delete require.cache[require.resolve(filePath)];
+    const imported = require(filePath) as ReactRouteModule;
     return {
       module: imported,
       templatePath: filePath,
@@ -84,7 +83,7 @@ function wrapHtml(document: {
     "    <meta charset=\"UTF-8\" />",
     "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />",
     `    <title>${document.title}</title>`,
-    `    <link rel=\"canonical\" href=\"${document.canonicalUrl}\" />`,
+    `    <link rel="canonical" href="${document.canonicalUrl}" />`,
     "  </head>",
     "  <body>",
     `    <div id="root">${document.appHtml}</div>`,
