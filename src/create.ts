@@ -1,10 +1,15 @@
 import path from "node:path";
+import { readFileSync } from "node:fs";
 import fse from "fs-extra";
 import simpleGit from "simple-git";
 import type { Logger } from "./types";
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const inquirer: any = require("inquirer");
+
+const flyytaPackage = JSON.parse(
+  readFileSync(path.join(__dirname, "..", "package.json"), "utf8"),
+) as { version: string };
 
 function starterRoot(): string {
   // Emitted beside dist/create.js → ../starters; same relative layout when running from src via tsx
@@ -44,6 +49,21 @@ function assertValidTemplate(template: string | undefined): asserts template is 
   throw new Error(
     `Unknown starter template "${template}". Valid templates: ${Object.keys(STARTERS).join(", ")}.`
   );
+}
+
+async function syncStarterPackageJson(targetDir: string): Promise<void> {
+  const packageJsonPath = path.join(targetDir, "package.json");
+  const packageJson = JSON.parse(await fse.readFile(packageJsonPath, "utf8")) as {
+    dependencies?: Record<string, string>;
+  };
+  const dependencies = packageJson.dependencies ?? {};
+
+  packageJson.dependencies = {
+    ...dependencies,
+    flyyta: flyytaPackage.version,
+  };
+
+  await fse.writeFile(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`, "utf8");
 }
 
 export async function scaffoldProject(options: {
@@ -109,6 +129,7 @@ export async function scaffoldProject(options: {
   }
 
   await fse.copy(starter.templatePath, targetDir);
+  await syncStarterPackageJson(targetDir);
 
   if (answers.git) {
     const git = simpleGit({ baseDir: targetDir });
@@ -116,5 +137,5 @@ export async function scaffoldProject(options: {
   }
 
   options.logger.success(`Created ${starter.label} starter in ${targetDir}`);
-  options.logger.info(`Next steps:\n  cd ${answers.directory}\n  npm install\n  npx flyyta dev`);
+  options.logger.info(`Next steps:\n  cd ${answers.directory}\n  npm install\n  npm run dev`);
 }
