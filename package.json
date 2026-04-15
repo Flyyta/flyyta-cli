@@ -1,12 +1,22 @@
 {
   "name": "flyyta",
   "version": "1.0.0",
-  "description": "A CLI Tool to create, build and deploy Flyyta Projects",
-  "main": "src/cli.js",
+  "description": "A TypeScript-first SSR, SSG, and hybrid framework with a React-first adapter and legacy Flyyta compatibility",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "preferGlobal": true,
-  "bin": "src/cli.js",
+  "bin": "dist/cli.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsc -p tsconfig.json",
+    "cli:dev": "tsx src/cli.ts dev",
+    "cli:build": "tsx src/cli.ts build",
+    "cli:serve": "tsx src/cli.ts serve",
+    "lint": "tsc --noEmit -p tsconfig.json",
+    "test": "tsx --test tests/**/*.test.ts",
+    "check": "npm run lint && npm test"
+  },
+  "engines": {
+    "node": ">=18.18"
   },
   "repository": {
     "type": "git",
@@ -14,8 +24,11 @@
   },
   "keywords": [
     "cli",
-    "template",
-    "compiler"
+    "static-site-generator",
+    "ssg",
+    "markdown",
+    "nunjucks",
+    "ssr-ready"
   ],
   "author": "",
   "license": "MIT",
@@ -23,16 +36,44 @@
     "url": "https://github.com/Flyyta/flyyta-cli/issues"
   },
   "homepage": "https://github.com/Flyyta/flyyta-cli#readme",
+  "files": [
+    "dist",
+    "starters",
+    "README.md"
+  ],
   "dependencies": {
-    "chalk": "^4.1.0",
-    "cli-spinner": "^0.2.10",
+    "@rsbuild/core": "^1.7.5",
+    "@rsbuild/plugin-react": "^1.4.6",
+    "chalk": "^4.1.2",
+    "chokidar": "^3.6.0",
     "commander": "^7.2.0",
-    "express": "^4.17.1",
-    "front-matter": "^3.1.0",
-    "inquirer": "^8.0.0",
-    "marked": "^0.8.0",
-    "node-emoji": "^1.10.0",
-    "shelljs": "^0.8.4",
-    "simple-git": "^2.37.0"
+    "esbuild-register": "^3.6.0",
+    "express": "^4.22.1",
+    "fs-extra": "^11.3.4",
+    "gray-matter": "^4.0.3",
+    "highlight.js": "^11.11.1",
+    "inquirer": "^8.2.7",
+    "jiti": "^2.6.1",
+    "markdown-it": "^14.1.1",
+    "markdown-it-anchor": "^9.2.0",
+    "node-emoji": "^1.11.0",
+    "nunjucks": "^3.2.4",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "sanitize-html": "^2.17.3",
+    "simple-git": "^2.48.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/fs-extra": "^11.0.4",
+    "@types/inquirer": "^9.0.9",
+    "@types/node": "^25.6.0",
+    "@types/nunjucks": "^3.2.6",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@types/sanitize-html": "^2.16.1",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.2"
   }
 }
