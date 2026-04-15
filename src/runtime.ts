@@ -1,215 +1,190 @@
 import fs from "fs";
 import path from "path";
 import express from "express";
+import fse from "fs-extra";
 import { createRsbuild } from "@rsbuild/core";
-import type { NormalizedConfig, Logger, RouteDefinition, LoadedContent } from "./types";
-import { reactAdapter, renderReactRoute } from "./adapters/react";
+import type { Logger, NormalizedConfig, RouteDefinition } from "./types";
 import { loadContent } from "./content";
+import { createBuildGraph } from "./framework-shared";
+import { reactAdapter, renderReactRoute } from "./adapters/react";
+import { fileExists } from "./utils";
 
-export async function buildRsbuildArtifacts(options: {
-  rootDir: string;
-  appDir: string;
-  outDir: string;
-  logger: Logger;
-}): Promise<void> {
-  const { pluginReact } = (await import("@rsbuild/plugin-react")) as {
-    pluginReact: () => unknown;
-  };
-  const rsbuild = await createRsbuild({
-    cwd: options.rootDir,
-    rsbuildConfig: {
-      source: {
-        entry: {
-          app: path.join(options.appDir, "entry-client.tsx"),
-        },
-      },
-      output: {
-        distPath: {
-          root: path.join(options.outDir, "client"),
-        },
-      },
-      plugins: [pluginReact()],
-    },
-  });
-
-  if (!fs.existsSync(path.join(options.appDir, "entry-client.tsx"))) {
-    options.logger.debug("Skipping Rsbuild artifact build because entry-client.tsx is not present");
-    return;
-  }
-
-  await rsbuild.build();
-}
-
-export async function startRsbuildDevClient(options: {
+interface RsbuildRuntimeOptions {
   rootDir: string;
   appDir: string;
   outDir: string;
   clientPort: number;
   logger: Logger;
-}): Promise<() => Promise<void>> {
-  if (!fs.existsSync(path.join(options.appDir, "entry-client.tsx"))) {
-    options.logger.debug("Skipping Rsbuild dev server because entry-client.tsx is not present");
-    return async () => {};
-  }
+}
 
-  const { pluginReact } = (await import("@rsbuild/plugin-react")) as {
+async function createReactPlugin(): Promise<unknown> {
+  const mod = (await import("@rsbuild/plugin-react")) as {
     pluginReact: () => unknown;
   };
+  return mod.pluginReact();
+}
+
+async function ensureClientEntry(rootDir: string, appDir: string): Promise<string> {
+  const preferred = path.join(appDir, "client.tsx");
+  if (fileExists(preferred)) {
+    return preferred;
+  }
+
+  const generatedDir = path.join(rootDir, ".flyyta");
+  await fse.ensureDir(generatedDir);
+  const generatedEntry = path.join(generatedDir, "client-entry.tsx");
+  await fs.promises.writeFile(
+    generatedEntry,
+    [
+      "import React from 'react';",
+      "import { hydrateRoot } from 'react-dom/client';",
+      "const root = document.getElementById('root');",
+      "if (root && root.childNodes.length === 0) {",
+      "  hydrateRoot(root, React.createElement('div', null));",
+      "}",
+    ].join("\n"),
+    "utf8"
+  );
+  return generatedEntry;
+}
+
+export async function buildRsbuildArtifacts(options: RsbuildRuntimeOptions): Promise<void> {
+  const entry = await ensureClientEntry(options.rootDir, options.appDir);
+  const reactPlugin = await createReactPlugin();
   const rsbuild = await createRsbuild({
     cwd: options.rootDir,
     rsbuildConfig: {
-      server: {
-        port: options.clientPort,
-      },
+      plugins: [reactPlugin],
       source: {
         entry: {
-          app: path.join(options.appDir, "entry-client.tsx"),
+          app: entry,
         },
       },
       output: {
         distPath: {
-          root: path.join(options.outDir, "client"),
+          root: path.join(options.outDir, "__flyyta__"),
+        },
+        cleanDistPath: true,
+      },
+      tools: {
+        htmlPlugin: false,
+      },
+      server: {
+        port: options.clientPort,
+      },
+    } as any,
+  });
+
+  await rsbuild.build();
+  options.logger.success("Built React client assets with Rsbuild");
+}
+
+export async function startRsbuildDevClient(options: RsbuildRuntimeOptions): Promise<() => Promise<void>> {
+  const entry = await ensureClientEntry(options.rootDir, options.appDir);
+  const reactPlugin = await createReactPlugin();
+  const rsbuild = await createRsbuild({
+    cwd: options.rootDir,
+    rsbuildConfig: {
+      plugins: [reactPlugin],
+      source: {
+        entry: {
+          app: entry,
         },
       },
-      plugins: [pluginReact()],
-    },
+      output: {
+        distPath: {
+          root: path.join(options.outDir, "__flyyta__"),
+        },
+      },
+      server: {
+        port: options.clientPort,
+      },
+    } as any,
   });
 
   const server = await rsbuild.startDevServer();
-  options.logger.info(`Rsbuild client runtime listening on http://localhost:${options.clientPort}`);
+  options.logger.success(`Rsbuild client dev server running on port ${options.clientPort}`);
   return async () => {
     await server.server.close();
   };
 }
 
-function routeToRegex(pattern: string): { regex: RegExp; keys: string[] } {
-  const keys: string[] = [];
-  const escaped = pattern.replace(/\//g, "\\/");
-  const withParams = escaped
-    .replace(/:([A-Za-z0-9_]+)\*/g, (_match, key: string) => {
-      keys.push(key);
-      return "(.*)";
-    })
-    .replace(/:([A-Za-z0-9_]+)/g, (_match, key: string) => {
-      keys.push(key);
-      return "([^/]+)";
-    });
-  return {
-    regex: new RegExp(`^${withParams}$`),
-    keys,
-  };
-}
+function extractParams(route: RouteDefinition, requestPath: string): Record<string, string> {
+  if (!route.pattern) {
+    return route.params || {};
+  }
 
-function matchRoute(route: RouteDefinition, requestPath: string): Record<string, string> | null {
-  const { regex, keys } = routeToRegex(route.pattern);
-  const match = requestPath.match(regex);
+  const match = route.pattern.exec(requestPath);
   if (!match) {
-    return null;
+    return {};
   }
 
-  const entries = keys.map((key, index) => [key, match[index + 1]]);
-  return Object.fromEntries(entries);
-}
-
-async function loadServerManifest(config: NormalizedConfig): Promise<RouteDefinition[]> {
-  const manifestPath = path.join(config.paths.outDir, "server-manifest.json");
-  if (!fs.existsSync(manifestPath)) {
-    return [];
-  }
-  const rawManifest = await fs.promises.readFile(manifestPath, "utf8");
-  return JSON.parse(rawManifest) as RouteDefinition[];
+  const sourcePath = route.sourcePath || "";
+  const relative = sourcePath.includes("/app/") ? sourcePath.split("/app/")[1] : sourcePath;
+  const segments = relative.replace(/\/page\.(tsx|ts|jsx|js)$/i, "").split("/").filter(Boolean);
+  const dynamicSegments = segments.filter((segment) => segment.startsWith("[") && segment.endsWith("]"));
+  return Object.fromEntries(dynamicSegments.map((segment, index) => [segment.slice(1, -1), match[index + 1] || ""]));
 }
 
 export async function startNodeServer(
   config: NormalizedConfig,
-  logger: Logger
+  logger: Logger,
+  routeSource?: RouteDefinition[]
 ): Promise<{ close: () => Promise<void> }> {
   const app = express();
-  const manifest = await loadServerManifest(config);
-  const content = await loadContent(config);
-
   app.use(express.static(config.paths.outDir));
-  if (fs.existsSync(config.paths.publicDir)) {
-    app.use(express.static(config.paths.publicDir));
+
+  if (config.adapter === "react") {
+    app.get("*", async (request, response, next) => {
+      try {
+        const content = await loadContent(config);
+        const routes =
+          routeSource ||
+          (await reactAdapter.discoverRoutes({
+            config,
+            content,
+            logger,
+            graph: createBuildGraph(),
+          }));
+        const pathname = request.path.endsWith("/") ? request.path : `${request.path}/`;
+        const matchedRoute =
+          routes.find((route) => route.urlPath === pathname && route.renderMode !== "static") ||
+          routes.find((route) => route.pattern?.test(pathname));
+
+        if (!matchedRoute || matchedRoute.renderMode === "static") {
+          next();
+          return;
+        }
+
+        const params = extractParams(matchedRoute, pathname);
+        const firstRoute = await renderReactRoute(
+          {
+            config,
+            content,
+            logger,
+            graph: createBuildGraph(),
+          },
+          { ...matchedRoute, params }
+        );
+        if (!firstRoute) {
+          next();
+          return;
+        }
+        response.send(firstRoute.contents);
+      } catch (error) {
+        next(error);
+      }
+    });
   }
 
-  app.get("*", async (request, response, next) => {
-    const urlPath = request.path.endsWith("/") ? request.path : `${request.path}/`;
-    const route = manifest.find((candidate) => matchRoute(candidate, urlPath));
-    if (!route) {
-      next();
-      return;
-    }
-
-    const params = matchRoute(route, urlPath) || {};
-    if (config.adapter === "react") {
-      const markup = await renderReactRoute(
-        {
-          config,
-          content,
-          logger,
-          graph: {
-            connect() {},
-            dependentsOf() {
-              return [];
-            },
-            dependenciesOf() {
-              return [];
-            },
-            serialize() {
-              return {};
-            },
-          },
-        },
-        route,
-        params
-      );
-      response.status(200).type("html").send(markup);
-      return;
-    }
-
-    const fallback = await reactAdapter.build(
-      {
-        config,
-        content: content as LoadedContent,
-        logger,
-        graph: {
-          connect() {},
-          dependentsOf() {
-            return [];
-          },
-          dependenciesOf() {
-            return [];
-          },
-          serialize() {
-            return {};
-          },
-        },
-      },
-      manifest
-    );
-    const matched = fallback.routes.find((entry) => entry.route.id === route.id);
-    if (!matched) {
-      response.status(404).send("Not found");
-      return;
-    }
-
-    response.status(200).type("html").send(matched.contents);
-  });
-
-  app.use((_request, response) => {
-    response.status(404).send("Not found");
-  });
-
-  const server = await new Promise<import("http").Server>((resolve) => {
+  const server = await new Promise<ReturnType<typeof app.listen>>((resolve) => {
     const instance = app.listen(config.dev.port, () => resolve(instance));
   });
 
-  logger.info(`Flyyta runtime listening on http://localhost:${config.dev.port}`);
-
+  logger.success(`Server running at http://localhost:${config.dev.port}`);
   return {
-    close: async () => {
-      await new Promise<void>((resolve, reject) => {
+    close: async () =>
+      new Promise<void>((resolve, reject) => {
         server.close((error) => {
           if (error) {
             reject(error);
@@ -217,7 +192,6 @@ export async function startNodeServer(
           }
           resolve();
         });
-      });
-    },
+      }),
   };
 }

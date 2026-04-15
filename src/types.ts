@@ -1,55 +1,88 @@
+import type { ReactElement, ReactNode } from "react";
+
 export type RenderMode = "static" | "server" | "hybrid" | "client";
+export type AdapterKind = "legacy-nunjucks" | "react";
 
 export interface Logger {
   info(message: string): void;
+  success(message: string): void;
   warn(message: string): void;
   error(message: string): void;
-  success(message: string): void;
   debug(message: string): void;
 }
 
+export interface FlyytaHookMap {
+  onConfig?: FlyytaHook<NormalizedConfig>;
+  onContentLoaded?: FlyytaHook<LoadedContent>;
+  onRoutesGenerated?: FlyytaHook<RouteDefinition[]>;
+  onBeforeWrite?: FlyytaHook<BuildPayload>;
+  onBuildComplete?: FlyytaHook<BuildResult>;
+}
+
+export type FlyytaHook<TPayload> =
+  | ((payload: TPayload) => Promise<TPayload | void> | TPayload | void)
+  | Array<(payload: TPayload) => Promise<TPayload | void> | TPayload | void>;
+
+export interface FlyytaPlugin extends FlyytaHookMap {}
+
+export interface AuthorDetails {
+  name: string;
+  description: string;
+  website: string;
+}
+
+export interface SiteDetails {
+  name: string;
+  heading: string;
+  description: string;
+  url: string;
+  language: string;
+  author: AuthorDetails;
+}
+
+export interface PathConfig {
+  rootDir: string;
+  contentDir: string;
+  sourceDir: string;
+  outDir: string;
+  publicDir: string;
+  appDir: string;
+  singlePostTemplatePath: string;
+  listTemplatePath: string;
+}
+
+export interface ReactFrameworkConfig {
+  enabled: boolean;
+  appDir: string;
+  entryClient?: string;
+  entryServer?: string;
+  rootLayout?: string;
+}
+
+export interface PostCollectionConfig {
+  enabled: boolean;
+  permalink: string;
+  perPage: number;
+  listPage: {
+    fileName: string;
+    fileDir: string;
+  };
+  tagBasePath: string;
+  categoryBasePath: string;
+  archiveBasePath: string;
+}
+
 export interface NormalizedConfig {
-  adapter: "legacy-nunjucks" | "react";
+  adapter: AdapterKind;
   rootDir: string;
   compatibility: {
     legacyProject: boolean;
     placeholderSyntax: boolean;
   };
-  site: {
-    name: string;
-    heading: string;
-    description: string;
-    url: string;
-    language: string;
-    author: {
-      name: string;
-      description: string;
-      website: string;
-    };
-  };
-  paths: {
-    rootDir: string;
-    contentDir: string;
-    sourceDir: string;
-    outDir: string;
-    publicDir: string;
-    appDir: string;
-    singlePostTemplatePath: string;
-    listTemplatePath: string;
-  };
+  site: SiteDetails;
+  paths: PathConfig;
   collections: {
-    posts: {
-      enabled: boolean;
-      permalink: string;
-      perPage: number;
-      listPage: {
-        fileName: string;
-        fileDir: string;
-      };
-      tagBasePath: string;
-      categoryBasePath: string;
-      archiveBasePath: string;
-    };
+    posts: PostCollectionConfig;
   };
   markdown: {
     allowHtml: boolean;
@@ -72,19 +105,13 @@ export interface NormalizedConfig {
     searchIndex: boolean;
     auto404: boolean;
   };
-  react: {
-    enabled: boolean;
-    appDir: string;
-    entryClient?: string;
-    entryServer?: string;
-    rootLayout?: string;
-  };
+  react: ReactFrameworkConfig;
   templates: {
     autoescape: boolean;
     pageExtensions: string[];
   };
   hooks: FlyytaHookMap;
-  plugins: Array<string | Record<string, unknown>>;
+  plugins: Array<FlyytaPlugin | string>;
   rawConfig: Record<string, unknown>;
 }
 
@@ -128,30 +155,38 @@ export interface LoadedContent {
 
 export interface RouteDefinition {
   id: string;
-  pattern: string;
-  urlPath: string;
-  outputPath: string;
-  filePath: string;
+  kind: "page" | "post" | "taxonomy" | "archive" | "not-found" | "app";
   renderMode: RenderMode;
-  sourceType: "template" | "markdown" | "component" | "content";
-  metadata?: Record<string, unknown>;
+  urlPath: string;
+  outputPath?: string;
+  sourcePath?: string;
+  pattern?: RegExp;
+  params?: Record<string, string>;
+  meta?: Record<string, unknown>;
+  title?: string;
+  context?: Record<string, unknown>;
 }
 
-export interface BuildOutputRoute {
+export interface RenderedRoute {
   route: RouteDefinition;
+  contents: string;
+  outputPath: string;
+}
+
+export interface SupplementalFile {
   outputPath: string;
   contents: string;
 }
 
 export interface BuildPayload {
   config: NormalizedConfig;
+  routes: RenderedRoute[];
+  supplementalFiles: SupplementalFile[];
   content: LoadedContent;
   graph: BuildGraphLike;
-  routes: BuildOutputRoute[];
-  supplementalFiles: Array<{ outputPath: string; contents: string }>;
 }
 
-export type BuildResult = BuildPayload;
+export interface BuildResult extends BuildPayload {}
 
 export interface DependencyGraph {
   edges: Map<string, Set<string>>;
@@ -159,10 +194,31 @@ export interface DependencyGraph {
 }
 
 export interface BuildGraphLike {
+  state: DependencyGraph;
   connect(from: string, to: string): void;
   dependentsOf(node: string): string[];
   dependenciesOf(node: string): string[];
   serialize(): Record<string, string[]>;
+}
+
+export interface RouteModuleContext {
+  params: Record<string, string>;
+  config: NormalizedConfig;
+  content: LoadedContent;
+}
+
+export interface ReactRouteModule {
+  default: (props: Record<string, unknown>) => ReactElement;
+  loader?: (context: RouteModuleContext) => Promise<Record<string, unknown>> | Record<string, unknown>;
+  generateStaticParams?: (
+    context: Omit<RouteModuleContext, "params">
+  ) => Promise<Array<Record<string, string>>> | Array<Record<string, string>>;
+  route?: {
+    render?: RenderMode;
+    title?: string;
+    path?: string;
+  };
+  Layout?: (props: { children: ReactNode; config: NormalizedConfig }) => ReactElement;
 }
 
 export interface AdapterBuildContext {
@@ -172,40 +228,13 @@ export interface AdapterBuildContext {
   graph: BuildGraphLike;
 }
 
+export interface AdapterBuildResult {
+  routes: RenderedRoute[];
+  supplementalFiles: SupplementalFile[];
+}
+
 export interface FlyytaAdapter {
-  name: string;
+  kind: AdapterKind;
   discoverRoutes(context: AdapterBuildContext): Promise<RouteDefinition[]>;
-  build(
-    context: AdapterBuildContext,
-    routes: RouteDefinition[]
-  ): Promise<Pick<BuildPayload, "routes" | "supplementalFiles">>;
-}
-
-export type FlyytaHookMap = Partial<{
-  onConfig: (config: NormalizedConfig) => NormalizedConfig | Promise<NormalizedConfig>;
-  onContentLoaded: (content: LoadedContent) => LoadedContent | Promise<LoadedContent>;
-  onRoutesGenerated: (routes: RouteDefinition[]) => RouteDefinition[] | Promise<RouteDefinition[]>;
-  onBeforeWrite: (payload: BuildPayload) => BuildPayload | Promise<BuildPayload>;
-  onBuildComplete: (payload: BuildResult) => BuildResult | Promise<BuildResult>;
-}>;
-
-export interface RouteModuleContext {
-  params: Record<string, string>;
-  config: NormalizedConfig;
-  content: LoadedContent;
-}
-
-export interface ReactRouteMetadata {
-  render?: RenderMode;
-  title?: string;
-  description?: string;
-  runtime?: "node";
-}
-
-export interface ReactRouteModule {
-  default: (props?: unknown) => unknown;
-  route?: ReactRouteMetadata;
-  loader?: (context: RouteModuleContext) => Promise<unknown> | unknown;
-  generateStaticParams?: (context: Omit<RouteModuleContext, "params">) => Promise<Array<Record<string, string>>> | Array<Record<string, string>>;
-  Layout?: (props: { children: unknown; data?: unknown; params: Record<string, string> }) => unknown;
+  build(context: AdapterBuildContext, routes: RouteDefinition[]): Promise<AdapterBuildResult>;
 }
