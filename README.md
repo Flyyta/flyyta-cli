@@ -23,7 +23,7 @@ flowchart LR
   config --> content[ContentLoader]
   config --> adapter[AdapterSelection]
   content --> adapter
-  adapter --> graph[BuildGraph]
+  adapter --> buildGraph[BuildGraph]
   adapter --> build[BuildOutput]
   adapter --> runtime[NodeRuntime]
   runtime --> rsbuild[RsbuildClientRuntime]
