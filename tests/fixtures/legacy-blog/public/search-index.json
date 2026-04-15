@@ -1,0 +1,18 @@
+[
+  {
+    "title": "Second Legacy Post",
+    "description": "More legacy compatibility coverage.",
+    "excerpt": "More legacy compatibility coverage.",
+    "url": "/blog/second-post/",
+    "tags": [],
+    "categories": []
+  },
+  {
+    "title": "First Legacy Post",
+    "description": "Legacy placeholder rendering still works.",
+    "excerpt": "Legacy placeholder rendering still works.",
+    "url": "/blog/first-post/",
+    "tags": [],
+    "categories": []
+  }
+]

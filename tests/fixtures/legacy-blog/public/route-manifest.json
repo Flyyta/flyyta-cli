@@ -1,0 +1,37 @@
+[
+  {
+    "id": "page:index.html",
+    "kind": "page",
+    "renderMode": "static",
+    "urlPath": "/",
+    "outputPath": "index.html"
+  },
+  {
+    "id": "post:second-post",
+    "kind": "post",
+    "renderMode": "static",
+    "urlPath": "/blog/second-post/",
+    "outputPath": "blog/second-post/index.html"
+  },
+  {
+    "id": "post:first-post",
+    "kind": "post",
+    "renderMode": "static",
+    "urlPath": "/blog/first-post/",
+    "outputPath": "blog/first-post/index.html"
+  },
+  {
+    "id": "archive:index",
+    "kind": "archive",
+    "renderMode": "static",
+    "urlPath": "/archive/",
+    "outputPath": "archive/index.html"
+  },
+  {
+    "id": "system:404",
+    "kind": "not-found",
+    "renderMode": "static",
+    "urlPath": "/404/",
+    "outputPath": "404.html"
+  }
+]
